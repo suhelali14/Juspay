@@ -4,7 +4,7 @@ import App from "./App";
 import "tailwindcss/tailwind.css";
 
 
-S
+
 ReactDOM.render(
   <React.StrictMode>
     <App />
