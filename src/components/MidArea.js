@@ -69,6 +69,7 @@ export default function MidArea({
                     key: `${input.id}${i}`,
                     value:newValues[j].value,
                   });
+                  console.log("adding ele:");
                 }
               }
             } else {
