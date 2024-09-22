@@ -120,7 +120,8 @@ export default function MidArea({
                 //   key: `${input.id}${i}`,
                 //   value:newValues[blockId][j].value,
                 // });
-                console.log("adding ele:"+newValues[blockId][j].value);
+                let ele=newValues[blockId][j].value;
+                console.log(`adding ele: ${ele}`);
               }
             }
           } else if (!isNaN(input.value)) {
