@@ -116,8 +116,11 @@ export default function MidArea({
               });
               console.log("We are in the loop");
               for(let j=0;j<i;j++){
-                
-                console.log("adding ele:"+newValues[blockId][j]);
+                // newValues[blockId].push({
+                //   key: `${input.id}${i}`,
+                //   value:newValues[blockId][j].value,
+                // });
+                console.log("adding ele:"+newValues[blockId][j].value);
               }
             }
           } else if (!isNaN(input.value)) {
