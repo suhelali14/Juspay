@@ -64,13 +64,6 @@ export default function MidArea({
                   key: `${input.id}${i}`,
                   value: parseFloat(input.value),
                 });
-                for(let j=0;j<i;j++){
-                  newValues[blockId].push({
-                    key: `${input.id}${i}`,
-                    value:newValues[j].value,
-                  });
-                  console.log("adding ele:");
-                }
               }
             } else {
               newValues[blockId].push({
@@ -122,6 +115,13 @@ export default function MidArea({
                 
               });
               console.log("We are in the loop");
+              for(let j=0;j<i;j++){
+                newValues[blockId].push({
+                  key: `${input.id}${i}`,
+                  value:newValues[j].value,
+                });
+                console.log("adding ele:");
+              }
             }
           } else if (!isNaN(input.value)) {
             newValues[blockId].push({
