@@ -115,13 +115,12 @@ export default function MidArea({
                 
               });
               console.log("We are in the loop");
-              for(let j=0;j<i;j++){
+              for(let j=0;j<=i;j++){
                 let ele=newValues[blockId][j].value;
                 newValues[blockId].push({
-                  key: `${input.id}${i}`,
+                  key: `${input.id}${j}`,
                   value:ele,
                 });
-                
                 console.log(`adding ele: ${ele}`);
               }
             }
