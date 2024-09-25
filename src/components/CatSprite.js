@@ -1,87 +1,189 @@
 import React, { useEffect, useRef, useState } from "react";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
-export default function CatSprite({ stream }) {
+export default function CatSprite({ stream, globalactive, name, characters, width, height, position }) {
   const [message, setMessage] = useState("");
   const [showMessage, setShowMessage] = useState(false);
   const [backgroundColor, setBackgroundColor] = useState("");
 
   const ref_cat = useRef(null);
   const ref_angle = useRef(0);
-  const ref_left = useRef(0);
-  const ref_top = useRef(0);
+  const ref_left = useRef(position.x); // Initialize with default values
+  const ref_top = useRef(position.y); // Initialize with default values
   const ref_scale = useRef(1);
+  const ref_directionX = useRef(1);
+  const ref_directionY = useRef(1);
+  const lastAnimation = useRef(null); // Store the last animation for reversing
 
+  const notify = (instruction) => {
+    toast.warning(`Collision detected! Perform the opposite animation: ${instruction}`, {
+      position: toast.POSITION.TOP_CENTER,
+      className: "bg-red-500 text-white",
+      bodyClassName: "text-lg",
+      autoClose: 5000,
+      hideProgressBar: true,
+    });
+  };
 
   useEffect(() => {
     const element = ref_cat.current;
 
-    async function Animations() {
+    if (!element) return; // Guard clause to prevent null reference
+
+    const checkCollision = () => {
+      for (let character of characters) {
+        if (character.name !== name) {
+          const otherLeft = character.position.x;
+          const otherTop = character.position.y;
+          const otherWidth = character.width;
+          const otherHeight = character.height;
+
+          const rect1 = {
+            left: ref_left.current,
+            top: ref_top.current,
+            right: ref_left.current + width,
+            bottom: ref_top.current + height,
+          };
+
+          const rect2 = {
+            left: otherLeft,
+            top: otherTop,
+            right: otherLeft + otherWidth,
+            bottom: otherTop + otherHeight,
+          };
+          console.log(`react1`,rect1);
+          console.log(`react2`,rect2);
+          if (
+            rect1.left < rect2.right &&
+            rect1.right > rect2.left &&
+            rect1.top < rect2.bottom &&
+            rect1.bottom > rect2.top
+          ) {
+            console.log(`Collision detected between ${name} and ${character.name}`);
+            return { collided: true, character }; // Return collided character information
+          }
+        }
+      }
+      return { collided: false }; // No collision
+    };
+
+    const resolveCollision = (collidedCharacter) => {
+      const otherLeft = collidedCharacter.position.x;
+      const otherTop = collidedCharacter.position.y;
+
+      // Calculate distances
+      const deltaX = (ref_left.current + width / 2) - (otherLeft + collidedCharacter.width / 2);
+      const deltaY = (ref_top.current + height / 2) - (otherTop + collidedCharacter.height / 2);
+      
+      // Determine the direction of collision
+      if (Math.abs(deltaX) < Math.abs(deltaY) && deltaY < 0) {
+        // Collision from above
+        ref_top.current = otherTop - height; // Move up
+       
+        notify("Move Up"); // Notify with the opposite action
+      } else if (Math.abs(deltaX) < Math.abs(deltaY) && deltaY > 0) {
+        // Collision from below
+        ref_top.current = otherTop + collidedCharacter.height;
+         // Move down
+        notify("Move down"); // Notify with the opposite action
+      } else if (Math.abs(deltaX) >= Math.abs(deltaY) && deltaX < 0) {
+        // Collision from the left
+        ref_left.current = otherLeft + width;
+       
+         // Move left
+        notify("Move left"); // Notify with the opposite action
+      } else if (Math.abs(deltaX) >= Math.abs(deltaY) && deltaX > 0) {
+        // Collision from the right
+        ref_left.current = otherLeft + collidedCharacter.width;
+       
+         // Move right
+        notify("Move right"); // Notify with the opposite action
+      }
+
+      element.style.left = `${ref_left.current}px`;
+      element.style.top = `${ref_top.current}px`;
+    };
+
+    const handleCollision = () => {
+      const { collided, character } = checkCollision();
+      if (collided) {
+        resolveCollision(character); // Resolve collision if detected
+      }
+    };
+
+    const updateCharacterPosition = () => {
+      for (let i = 0; i < characters.length; i++) {
+        if (characters[i].name === name) {
+          characters[i].position.x = ref_left.current; // Update X position
+          characters[i].position.y = ref_top.current;  // Update Y position
+          break; // Exit loop once the character is found and updated
+        }
+      }
+    };
+
+    const Animations = async () => {
       for (let i = 0; i < stream?.length; i++) {
         const key = stream[i];
         const keyValue = key.value;
         const keyType = key.key;
-    
-        // Consolidate movements
+
+        handleCollision(); // Check for collision before each animation step
+
+        lastAnimation.current = { type: keyType, value: keyValue }; // Store last animation
+
         if (keyType.startsWith("movex") || keyType.startsWith("movey")) {
-          const increment = keyValue;
+          const increment = keyValue * (keyType.startsWith("movex") ? ref_directionX.current : ref_directionY.current);
           const isMoveX = keyType.startsWith("movex");
           const property = isMoveX ? "left" : "top";
-          const startValue = isMoveX ? ref_left.current : ref_top.current;
+
           const targetValue = parseFloat(element.style[property] || 0) + increment;
-    
-          await Movement(property, startValue, targetValue);
-        } 
-        else if (keyType.startsWith("turnanti") || keyType.startsWith("turnclock")) {
+
+          await Movement(property, ref_left.current, targetValue);
+
+          ref_left.current = parseFloat(element.style.left) || ref_left.current;
+          ref_top.current = parseFloat(element.style.top) || ref_top.current;
+
+          updateCharacterPosition();
+        } else if (keyType.startsWith("turnanti") || keyType.startsWith("turnclock")) {
           ref_angle.current += keyType.startsWith("turnanti") ? -keyValue : keyValue;
           element.style.transform = `rotate(${ref_angle.current}deg) scale(${ref_scale.current})`;
-        } 
-        else if (keyType.startsWith("jumptoX") || keyType.startsWith("gotoX") || keyType.startsWith("gotoXRandom")) {
+        } else if (keyType.startsWith("jumptoX") || keyType.startsWith("gotoX")) {
           ref_left.current = keyValue;
           element.style.left = `${keyValue}px`;
-        } 
-        else if (keyType.startsWith("jumptoY") || keyType.startsWith("gotoY") || keyType.startsWith("gotoYRandom")) {
+          updateCharacterPosition();
+        } else if (keyType.startsWith("jumptoY") || keyType.startsWith("gotoY")) {
           ref_top.current = keyValue;
           element.style.top = `${keyValue}px`;
-        } 
-        else if (keyType.startsWith("rotatedegree")) {
+          updateCharacterPosition();
+        } else if (keyType.startsWith("rotatedegree")) {
           const normalizedAngle = ((keyValue % 360) + 360) % 360;
           element.style.transform = `rotate(${normalizedAngle}deg) scale(${ref_scale.current})`;
-        } 
-        else if (keyType.startsWith("changesize")) {
+        } else if (keyType.startsWith("changesize")) {
           ref_scale.current += keyValue / 100;
           element.style.transform = `rotate(${ref_angle.current}deg) scale(${ref_scale.current})`;
-        } 
-        else if (keyType.startsWith("setsize")) {
+        } else if (keyType.startsWith("setsize")) {
           ref_scale.current = keyValue / 100;
           element.style.transform = `rotate(${ref_angle.current}deg) scale(${ref_scale.current})`;
-        } 
-        else if (keyType.startsWith("wait")) {
+        } else if (keyType.startsWith("wait")) {
           await new Promise((resolve) => setTimeout(resolve, keyValue * 1000));
-        } 
-        else if (keyType.startsWith("speak")) {
+        } else if (keyType.startsWith("speak")) {
           setMessage(keyValue);
           setShowMessage(true);
           await new Promise((resolve) => setTimeout(resolve, 5000));
           setShowMessage(false);
-        } 
-        else if (keyType.startsWith("changeColorEffect")) {
+        } else if (keyType.startsWith("changeColorEffect")) {
           const currentColor = element.style.filter || "none";
           const currentEffect = parseInt(currentColor.replace(/\D/g, ""), 10) || 0;
           element.style.filter = `hue-rotate(${currentEffect + keyValue}deg)`;
-        } 
-        else if (keyType.startsWith("changebackgroundcolor")) {
+        } else if (keyType.startsWith("changebackgroundcolor")) {
           setBackgroundColor(keyValue);
           element.style.backgroundColor = keyValue;
         }
-        else if (keyType.startsWith("repeat")) {
-          const repeatCount = parseInt(keyValue, 10);
-          console.log("we are iin repeat loop logic cat");
-        }
       }
-    }
-    
+    };
 
-    async function Movement(property, startValue, targetValue) {
+    const Movement = (property, startValue, targetValue) => {
       return new Promise((resolve) => {
         const animate = () => {
           const currentValue = parseFloat(element.style[property] || 0);
@@ -96,24 +198,30 @@ export default function CatSprite({ stream }) {
             resolve();
           }
         };
-
         animate();
       });
-    }
+    };
 
-    Animations();
-  }, [stream]);
+    if (globalactive === name) {
+      Animations();
+    }
+  }, [stream, globalactive, name, characters]);
+
   return (
     <div style={{ position: "relative" }}>
+      {showMessage && <div className="message">{message}</div>}
       <div
+        id={name} // Add an ID for collision detection
         style={{
           position: "absolute",
           left: `${ref_left.current}px`,
           top: `${ref_top.current}px`,
-          backgroundColor: backgroundColor
+          backgroundColor: backgroundColor,
         }}
         ref={ref_cat}
+        className={globalactive}
       >
+        <ToastContainer />
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="95.17898101806641"

@@ -71,7 +71,7 @@ export default function App() {
           </DragDropContext>
         </div>
         <div className="w-full md:w-3/6 h-screen overflow-hidden flex flex-col bg-white border-t border-l border-gray-200 rounded-tl-xl rounded-bl-xl md:rounded-tr-xl md:rounded-br-xl md:flex-row">
-          <div className="w-full md:w-full h-1/2 md:h-full">
+          <div className="w-full md:w-full h-full md:h-full">
             <PreviewArea stream={stream}/>
           </div>
           
