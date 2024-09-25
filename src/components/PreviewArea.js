@@ -27,7 +27,7 @@ export default function PreviewArea({ stream }) {
       ...prevCharacters,
       {
         id: newCharacterId,
-        position: { x: 52 * (characters.length + 1), y: 52* (characters.length + 1) },
+        position: { x: 0 * (characters.length + 1), y: 110* (characters.length + 1) },
         name: newSpriteName,
         width: 95.18, // Use the same width as before
         height: 100.04 // Use the same height as before

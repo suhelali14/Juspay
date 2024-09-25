@@ -9,27 +9,25 @@ export default function CatSprite({ stream, globalactive, name, characters, widt
 
   const ref_cat = useRef(null);
   const ref_angle = useRef(0);
-  const ref_left = useRef(position.x); // Initialize with default values
-  const ref_top = useRef(position.y); // Initialize with default values
+  const ref_left = useRef(position.x);
+  const ref_top = useRef(position.y);
   const ref_scale = useRef(1);
-  const ref_directionX = useRef(1);
-  const ref_directionY = useRef(1);
-  const lastAnimation = useRef(null); // Store the last animation for reversing
+  const lastAnimation = useRef(null);
 
   const notify = (instruction) => {
     toast.warning(`Collision detected! Perform the opposite animation: ${instruction}`, {
       position: toast.POSITION.TOP_CENTER,
-      className: "bg-red-500 text-white",
+      className: "bg-red-500 text-white absolute ",
       bodyClassName: "text-lg",
-      autoClose: 5000,
-      hideProgressBar: true,
+      autoClose: 1000,
+      hideProgressBar: false,
     });
   };
 
   useEffect(() => {
     const element = ref_cat.current;
 
-    if (!element) return; // Guard clause to prevent null reference
+    if (!element) return;
 
     const checkCollision = () => {
       for (let character of characters) {
@@ -52,138 +50,193 @@ export default function CatSprite({ stream, globalactive, name, characters, widt
             right: otherLeft + otherWidth,
             bottom: otherTop + otherHeight,
           };
-          console.log(`react1`,rect1);
-          console.log(`react2`,rect2);
+
           if (
             rect1.left < rect2.right &&
             rect1.right > rect2.left &&
             rect1.top < rect2.bottom &&
             rect1.bottom > rect2.top
           ) {
-            console.log(`Collision detected between ${name} and ${character.name}`);
-            return { collided: true, character }; // Return collided character information
+            return { collided: true, character };
           }
         }
       }
-      return { collided: false }; // No collision
+      return { collided: false };
     };
 
     const resolveCollision = (collidedCharacter) => {
       const otherLeft = collidedCharacter.position.x;
       const otherTop = collidedCharacter.position.y;
-
-      // Calculate distances
+    
       const deltaX = (ref_left.current + width / 2) - (otherLeft + collidedCharacter.width / 2);
       const deltaY = (ref_top.current + height / 2) - (otherTop + collidedCharacter.height / 2);
-      
-      // Determine the direction of collision
-      if (Math.abs(deltaX) < Math.abs(deltaY) && deltaY < 0) {
-        // Collision from above
-        ref_top.current = otherTop - height; // Move up
-       
-        notify("Move Up"); // Notify with the opposite action
-      } else if (Math.abs(deltaX) < Math.abs(deltaY) && deltaY > 0) {
-        // Collision from below
-        ref_top.current = otherTop + collidedCharacter.height;
-         // Move down
-        notify("Move down"); // Notify with the opposite action
-      } else if (Math.abs(deltaX) >= Math.abs(deltaY) && deltaX < 0) {
-        // Collision from the left
-        ref_left.current = otherLeft + width;
-       
-         // Move left
-        notify("Move left"); // Notify with the opposite action
-      } else if (Math.abs(deltaX) >= Math.abs(deltaY) && deltaX > 0) {
-        // Collision from the right
-        ref_left.current = otherLeft + collidedCharacter.width;
-       
-         // Move right
-        notify("Move right"); // Notify with the opposite action
-      }
+    
+      console.log("Collision detected:", { deltaX, deltaY });
+      console.log(ref_cat.current);
+      let targetLeft = ref_left.current;
+      let targetTop = ref_top.current;
+      let targetLeftcolid = collidedCharacter.position.x;
+      let targetTopcolide = collidedCharacter.position.y;
 
-      element.style.left = `${ref_left.current}px`;
-      element.style.top = `${ref_top.current}px`;
+      if (Math.abs(deltaX) < Math.abs(deltaY)) {
+        if (deltaY < 0) {
+          targetTop = otherTop - 1.5*height;
+          targetLeftcolid=ref_top.current+1.5*collidedCharacter.height; 
+           // Move up
+          notify("Move Up");
+        } else {
+          targetTop = otherTop + 1.5*collidedCharacter.height; // Move down
+          notify("Move Down");
+        }
+      } else {
+        if (deltaX < 0) {
+          targetLeft = otherLeft - 1.5*width; // Move left
+          notify("Move Left");
+        } else {
+          targetLeft = otherLeft + 1.5*collidedCharacter.width; // Move right
+          notify("Move Right");
+        }
+      }
+    
+      // Animate both X and Y positions
+      Promise.all([
+        animateMovement("left", ref_left.current, targetLeft),
+
+        animateMovement("top", ref_top.current, targetTop),
+        // animateMovement("top", collidedCharacter, targetLeftcolid),
+      ]).then(() => {
+        ref_left.current = targetLeft;
+        ref_top.current = targetTop;
+        // collidedCharacter.position.x=targetLeftcolid;
+        // collidedCharacter.position.y=targetTopcolide;
+        updateCharacterPosition(ref_left.current, ref_top.current);
+        // updateCharacterPosition(collidedCharacter.position.x, collidedCharacter.position.y);
+      });
+    };
+
+    const updateCharacterPosition = (newX, newY) => {
+      const characterIndex = characters.findIndex(character => character.name === name);
+      if (characterIndex !== -1) {
+        characters[characterIndex].position.x = newX;
+        characters[characterIndex].position.y = newY;
+        console.log(`Updated position of ${name}: X: ${newX}, Y: ${newY}`);
+      }
     };
 
     const handleCollision = () => {
       const { collided, character } = checkCollision();
       if (collided) {
-        resolveCollision(character); // Resolve collision if detected
-      }
-    };
-
-    const updateCharacterPosition = () => {
-      for (let i = 0; i < characters.length; i++) {
-        if (characters[i].name === name) {
-          characters[i].position.x = ref_left.current; // Update X position
-          characters[i].position.y = ref_top.current;  // Update Y position
-          break; // Exit loop once the character is found and updated
-        }
+        resolveCollision(character);
       }
     };
 
     const Animations = async () => {
-      for (let i = 0; i < stream?.length; i++) {
-        const key = stream[i];
-        const keyValue = key.value;
+      for (let key of stream || []) {
         const keyType = key.key;
+        const keyValue = key.value;
 
+        console.log(`Executing animation: ${keyType}, Value: ${keyValue}`);
         handleCollision(); // Check for collision before each animation step
 
-        lastAnimation.current = { type: keyType, value: keyValue }; // Store last animation
+        lastAnimation.current = { type: keyType, value: keyValue };
 
-        if (keyType.startsWith("movex") || keyType.startsWith("movey")) {
-          const increment = keyValue * (keyType.startsWith("movex") ? ref_directionX.current : ref_directionY.current);
-          const isMoveX = keyType.startsWith("movex");
-          const property = isMoveX ? "left" : "top";
-
-          const targetValue = parseFloat(element.style[property] || 0) + increment;
-
-          await Movement(property, ref_left.current, targetValue);
-
-          ref_left.current = parseFloat(element.style.left) || ref_left.current;
-          ref_top.current = parseFloat(element.style.top) || ref_top.current;
-
-          updateCharacterPosition();
-        } else if (keyType.startsWith("turnanti") || keyType.startsWith("turnclock")) {
-          ref_angle.current += keyType.startsWith("turnanti") ? -keyValue : keyValue;
-          element.style.transform = `rotate(${ref_angle.current}deg) scale(${ref_scale.current})`;
-        } else if (keyType.startsWith("jumptoX") || keyType.startsWith("gotoX")) {
-          ref_left.current = keyValue;
-          element.style.left = `${keyValue}px`;
-          updateCharacterPosition();
-        } else if (keyType.startsWith("jumptoY") || keyType.startsWith("gotoY")) {
-          ref_top.current = keyValue;
-          element.style.top = `${keyValue}px`;
-          updateCharacterPosition();
-        } else if (keyType.startsWith("rotatedegree")) {
-          const normalizedAngle = ((keyValue % 360) + 360) % 360;
-          element.style.transform = `rotate(${normalizedAngle}deg) scale(${ref_scale.current})`;
-        } else if (keyType.startsWith("changesize")) {
-          ref_scale.current += keyValue / 100;
-          element.style.transform = `rotate(${ref_angle.current}deg) scale(${ref_scale.current})`;
-        } else if (keyType.startsWith("setsize")) {
-          ref_scale.current = keyValue / 100;
-          element.style.transform = `rotate(${ref_angle.current}deg) scale(${ref_scale.current})`;
-        } else if (keyType.startsWith("wait")) {
-          await new Promise((resolve) => setTimeout(resolve, keyValue * 1000));
-        } else if (keyType.startsWith("speak")) {
-          setMessage(keyValue);
-          setShowMessage(true);
-          await new Promise((resolve) => setTimeout(resolve, 5000));
-          setShowMessage(false);
-        } else if (keyType.startsWith("changeColorEffect")) {
-          const currentColor = element.style.filter || "none";
-          const currentEffect = parseInt(currentColor.replace(/\D/g, ""), 10) || 0;
-          element.style.filter = `hue-rotate(${currentEffect + keyValue}deg)`;
-        } else if (keyType.startsWith("changebackgroundcolor")) {
-          setBackgroundColor(keyValue);
-          element.style.backgroundColor = keyValue;
+        switch (true) {
+          case keyType.startsWith("movex"):
+          case keyType.startsWith("movey"):
+            await moveCharacter(keyType, keyValue);
+            break;
+          case keyType.startsWith("turnanti"):
+          case keyType.startsWith("turnclock"):
+            rotateCharacter(keyType, keyValue);
+            break;
+          case keyType.startsWith("jumptoX") || keyType.startsWith("gotoX"):
+            ref_left.current = keyValue;
+            element.style.left = `${keyValue}px`;
+            updateCharacterPosition(ref_left.current, ref_top.current);
+            break;
+          case keyType.startsWith("jumptoY") || keyType.startsWith("gotoY"):
+            ref_top.current = keyValue;
+            element.style.top = `${keyValue}px`;
+            updateCharacterPosition(ref_left.current, ref_top.current);
+            break;
+          case keyType.startsWith("rotatedegree"):
+            rotateDegree(keyValue);
+            break;
+          case keyType.startsWith("changesize"):
+          case keyType.startsWith("setsize"):
+            changeSize(keyType, keyValue);
+            break;
+          case keyType.startsWith("wait"):
+            await wait(keyValue);
+            break;
+          case keyType.startsWith("speak"):
+            await speak(keyValue);
+            break;
+          case keyType.startsWith("changeColorEffect"):
+            changeColorEffect(keyValue);
+            break;
+          case keyType.startsWith("changebackgroundcolor"):
+            changeBackgroundColor(keyValue);
+            break;
         }
+
+        handleCollision(); // Re-check collision after each action
       }
     };
 
-    const Movement = (property, startValue, targetValue) => {
+    const moveCharacter = async (keyType, keyValue) => {
+      const increment = keyValue * (keyType.startsWith("movex") ? 1 : 1);
+      const isMoveX = keyType.startsWith("movex");
+      const property = isMoveX ? "left" : "top";
+
+      const targetValue = parseFloat(element.style[property] || 0) + increment;
+
+      await animateMovement(property, ref_left.current, targetValue);
+
+      ref_left.current = parseFloat(element.style.left) || ref_left.current;
+      ref_top.current = parseFloat(element.style.top) || ref_top.current;
+
+      updateCharacterPosition(ref_left.current, ref_top.current);
+    };
+
+    const rotateCharacter = (keyType, keyValue) => {
+      ref_angle.current += keyType.startsWith("turnanti") ? -keyValue : keyValue;
+      element.style.transform = `rotate(${ref_angle.current}deg) scale(${ref_scale.current})`;
+    };
+
+    const rotateDegree = (keyValue) => {
+      const normalizedAngle = ((keyValue % 360) + 360) % 360;
+      element.style.transform = `rotate(${normalizedAngle}deg) scale(${ref_scale.current})`;
+    };
+
+    const changeSize = (keyType, keyValue) => {
+      ref_scale.current += keyType.startsWith("changesize") ? keyValue / 100 : 0;
+      element.style.transform = `rotate(${ref_angle.current}deg) scale(${ref_scale.current})`;
+    };
+
+    const wait = (keyValue) => {
+      return new Promise(resolve => setTimeout(resolve, keyValue * 1000));
+    };
+
+    const speak = async (keyValue) => {
+      setMessage(keyValue);
+      setShowMessage(true);
+      await wait(5); // Display for 5 seconds
+      setShowMessage(false);
+    };
+
+    const changeColorEffect = (keyValue) => {
+      const currentColor = element.style.filter || "none";
+      const currentEffect = parseInt(currentColor.replace(/\D/g, ""), 10) || 0;
+      element.style.filter = `hue-rotate(${currentEffect + keyValue}deg)`;
+    };
+
+    const changeBackgroundColor = (keyValue) => {
+      setBackgroundColor(keyValue);
+      element.style.backgroundColor = keyValue;
+    };
+
+    const animateMovement = (property, startValue, targetValue) => {
       return new Promise((resolve) => {
         const animate = () => {
           const currentValue = parseFloat(element.style[property] || 0);
@@ -209,19 +262,22 @@ export default function CatSprite({ stream, globalactive, name, characters, widt
 
   return (
     <div style={{ position: "relative" }}>
-      {showMessage && <div className="message">{message}</div>}
+      <ToastContainer />
       <div
-        id={name} // Add an ID for collision detection
+        id={name}
         style={{
           position: "absolute",
           left: `${ref_left.current}px`,
           top: `${ref_top.current}px`,
-          backgroundColor: backgroundColor,
+          transition: "left 0.1s, top 0.1s",
+          width: `${width}px`,
+          height: `${height}px`,
+          backgroundColor: backgroundColor || "transparent",
+          transform: `rotate(${ref_angle.current}deg) scale(${ref_scale.current})`,
         }}
         ref={ref_cat}
-        className={globalactive}
       >
-        <ToastContainer />
+        
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="95.17898101806641"
