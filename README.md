@@ -29,7 +29,7 @@ To run this project on your local system, follow these steps:
 1. **Download or Clone the Repository**
    - Clone the repository using:
      ```bash
-     git clone <repository-url>
+     git clone https://github.com/suhelali14/Juspay.git
      ```
    
 2. **Install Dependencies**
